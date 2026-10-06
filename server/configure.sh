@@ -28,6 +28,12 @@ ask() {  # ask CLE "Question" [secret]
 
 echo "=== Configuration de l'agent vocal ==="
 echo
+# Métier : choisit le client de démo (server/tenants/garage-demo.yaml ou dentiste-demo.yaml)
+[ "$(get DEFAULT_TENANT)" = "dentiste-demo" ] && def=d || def=g
+read -rp "Métier : g = garage, d = cabinet dentaire [$def] : " metier
+metier="${metier:-$def}"
+if [ "$metier" = "d" ]; then set_env DEFAULT_TENANT dentiste-demo; else set_env DEFAULT_TENANT garage-demo; fi
+echo
 ask PUBLIC_HOST "Sous-domaine de l'agent, sans https:// (ex. voice.mondomaine.com)"
 ask DEEPGRAM_API_KEY "Clé Deepgram"
 ask CARTESIA_API_KEY "Clé Cartesia"
@@ -62,9 +68,9 @@ ask TWILIO_AUTH_TOKEN "Twilio Auth Token"
 
 echo
 echo "=== Récapitulatif (clés masquées) ==="
-grep -E '^(PUBLIC_HOST|LLM_PROVIDER|LLM_MODEL|N8N_WEBHOOK_BASE|NOTIFY_EMAIL|DEEPGRAM_API_KEY|CARTESIA_API_KEY|CARTESIA_VOICE_ID|GOOGLE_API_KEY|ANTHROPIC_API_KEY|TWILIO_ACCOUNT_SID|TWILIO_AUTH_TOKEN)=' .env \
+grep -E '^(DEFAULT_TENANT|PUBLIC_HOST|LLM_PROVIDER|LLM_MODEL|N8N_WEBHOOK_BASE|NOTIFY_EMAIL|DEEPGRAM_API_KEY|CARTESIA_API_KEY|CARTESIA_VOICE_ID|GOOGLE_API_KEY|ANTHROPIC_API_KEY|TWILIO_ACCOUNT_SID|TWILIO_AUTH_TOKEN)=' .env \
   | sed -E 's/^([A-Z0-9_]*(KEY|TOKEN|VOICE_ID|SID))=(.{4}).+/\1=\3…(ok)/; s/=$/= (vide)/'
 echo
 echo "🔑 Secret à coller dans n8n (credential Header Auth, Name = X-Voice-Secret) :"
 echo "   $(get N8N_WEBHOOK_SECRET)"
-echo "📞 Ta page d'appel : https://$(get PUBLIC_HOST)/appel?code=$(get WEB_CALL_CODE)"
+echo "📞 Ta page d'appel : https://$(get PUBLIC_HOST)/appel?g=$(get DEFAULT_TENANT)&code=$(get WEB_CALL_CODE)"
