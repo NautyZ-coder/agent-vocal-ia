@@ -1,0 +1,11 @@
+# Cas B : brancher l'agent sur le réseau Docker de ton reverse proxy existant.
+# Le nom du réseau vient de PROXY_NETWORK (server/.env) — trouve-le avec : docker network ls
+services:
+  voice-agent:
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    name: ${PROXY_NETWORK:?Mets PROXY_NETWORK=... dans server/.env}
+    external: true

@@ -1,4 +1,5 @@
-# HTTPS automatique (Let's Encrypt). Remplace par ton sous-domaine, qui doit pointer (DNS A) vers l'IP du VPS.
-voice.example.com {
+# Cas A (Caddy inclus) : rien à modifier, le domaine vient de PUBLIC_HOST dans server/.env.
+# Cas B (ton Caddy existant) : ajoute ce bloc dans TON Caddyfile en remplaçant {$PUBLIC_HOST} par ton sous-domaine.
+{$PUBLIC_HOST} {
 	reverse_proxy voice-agent:8765
 }

@@ -1,3 +1,11 @@
+# Agent vocal IA — déploiement Docker
+#
+# Cas A : rien n'écoute encore sur les ports 80/443 du VPS
+#   docker compose --profile caddy up -d --build        (Caddy inclus : HTTPS automatique)
+#
+# Cas B : tu as déjà un reverse proxy dans Docker (Caddy/Traefik devant n8n, par ex.)
+#   mets PROXY_NETWORK=<nom du réseau Docker de ton proxy> dans server/.env, puis :
+#   docker compose --env-file server/.env -f docker-compose.yml -f docker-compose.proxy.yml up -d --build
 services:
   voice-agent:
     build: ./server
@@ -7,16 +15,21 @@ services:
     volumes:
       - ./server/tenants:/app/tenants:ro   # ajouter un garage = ajouter un YAML + restart
       - ./server/data:/app/data
-    # Accessible seulement en local : le reverse proxy (Caddy/Traefik/Nginx) fait le HTTPS devant.
+    # Plafonds : l'agent ne peut jamais prendre toutes les ressources du VPS (n8n reste tranquille)
+    mem_limit: 1g
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    # Accessible seulement en local : un reverse proxy installé hors Docker (Caddy/Nginx) peut joindre 127.0.0.1:8765.
     ports:
       - "127.0.0.1:8765:8765"
 
-  # Option : si RIEN n'écoute déjà sur les ports 80/443 du VPS, lance aussi Caddy :
-  #   docker compose --profile caddy up -d
   caddy:
     profiles: ["caddy"]
     image: caddy:2
     restart: unless-stopped
+    env_file: ./server/.env
     ports:
       - "80:80"
       - "443:443"
