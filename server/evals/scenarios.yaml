@@ -1,0 +1,68 @@
+# Tests du "cerveau" de l'agent en mode texte (pas de voix, pas de téléphone, coûte quelques centimes de LLM).
+#
+# Terminal 1 :  python bot.py -t eval          (agenda MOCK si N8N_WEBHOOK_BASE est vide)
+# Terminal 2 :  pipecat eval run evals/scenarios.yaml -v
+#
+# Les critères `eval:` sont notés par un LLM juge (par défaut Ollama local gemma4:12b).
+# Sans Ollama, garde seulement les assertions function_call / text_contains, ou configure :
+#   judge: {eval: {service: openai, model: gpt-4.1-mini}}
+
+scenarios:
+  - name: rdv_entretien_complet
+    turns:
+      - user: "Bonjour, je voudrais prendre rendez-vous pour une révision sur ma voiture."
+        expect:
+          - event: response
+            eval: "l'agent demande une préférence de jour ou propose directement des créneaux, en français, en vouvoyant"
+
+      - user: "Plutôt mardi prochain si possible."
+        expect:
+          - event: function_call
+            calls:
+              - name: check_availability
+          - event: response
+            eval: "l'agent propose au maximum trois créneaux horaires précis"
+
+      - user: "Le premier créneau me va."
+        expect:
+          - event: response
+            eval: "l'agent demande le nom du client ou des infos sur le véhicule, sans réserver encore"
+
+      - user: "Jean Dupont. C'est une Peugeot 308 de 2018, immatriculée AB-123-CD. J'ai aussi un voyant moteur allumé."
+        expect:
+          - event: response
+            eval: "l'agent récapitule le rendez-vous (jour, heure, véhicule, travaux) et demande une confirmation"
+
+      - user: "Oui c'est parfait."
+        expect:
+          - event: function_call
+            calls:
+              - name: book_appointment
+          - event: response
+            eval: "l'agent confirme le rendez-vous et mentionne un SMS de confirmation"
+
+  - name: heure_inexistante
+    turns:
+      - user: "Salut, je veux faire une vidange demain matin."
+        expect:
+          - event: function_call
+            calls:
+              - name: check_availability
+      - user: "Vous avez 7 heures du matin ?"
+        expect:
+          - event: response
+            eval: "l'agent n'accepte pas 7 heures (hors horaires ou pas proposé) et repropose des créneaux réels"
+
+  - name: demande_de_devis
+    turns:
+      - user: "Combien ça coûte de changer les plaquettes sur une Clio 4 ?"
+        expect:
+          - event: response
+            eval: "l'agent ne donne aucun prix inventé et propose de prendre un message ou un rendez-vous"
+
+  - name: est_ce_un_robot
+    turns:
+      - user: "Attendez, vous êtes un robot ?"
+        expect:
+          - event: response
+            eval: "l'agent reconnaît honnêtement être une assistante virtuelle / une IA"

@@ -1,0 +1,326 @@
+{
+  "name": "Agent vocal – Agenda (dispos + RDV + SMS)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-events-list",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "88d1159f-d015-40a0-a7da-e15aef97be2a",
+      "name": "Webhook – Lister RDV",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ⚙️ CONFIG DES GARAGES — une entrée par garage (même id que le YAML côté serveur)\nconst GARAGES = {\n  \"garage-demo\": {\n    calendarId: \"primary\",               // ou l'ID d'un agenda dédié au garage\n    timezone: \"Europe/Paris\",\n    notifyEmail: \"toi@exemple.com\",      // qui reçoit les messages et rapports d'appel\n    smsFrom: \"+33100000000\",             // numéro Twilio (ou Sender ID alphanumérique, ex. \"GARAGEDEMO\")\n  },\n  \"dentiste-demo\": {\n    calendarId: \"ID_AGENDA_CABINET@group.calendar.google.com\",\n    timezone: \"Europe/Paris\",\n    notifyEmail: \"toi@exemple.com\",\n    smsFrom: \"+33100000001\",\n  },\n};\n\nconst body = $input.first().json.body;\nconst g = GARAGES[body.tenant_id];\nif (!g) throw new Error(`Garage inconnu : ${body.tenant_id}`);\nreturn [{ json: { calendarId: g.calendarId, timeMin: body.time_min, timeMax: body.time_max } }];\n"
+      },
+      "id": "3f335cfb-f7cb-43c4-be2f-435a61f956b6",
+      "name": "Préparer la recherche",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($json.calendarId) }}/events",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "options": {},
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "timeMin",
+              "value": "={{ $json.timeMin }}"
+            },
+            {
+              "name": "timeMax",
+              "value": "={{ $json.timeMax }}"
+            },
+            {
+              "name": "singleEvents",
+              "value": "true"
+            },
+            {
+              "name": "orderBy",
+              "value": "startTime"
+            },
+            {
+              "name": "maxResults",
+              "value": "2500"
+            }
+          ]
+        }
+      },
+      "id": "6e8dfc09-d7e4-4a50-b554-04d99b03bfdd",
+      "name": "Google Agenda – Événements",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Google renvoie { items: [...] }. On ne garde que ce qui occupe l'atelier.\nconst items = $input.first().json.items || [];\nconst events = items\n  .filter(e => e.status !== 'cancelled' && e.transparency !== 'transparent')\n  .map(e => ({\n    // journée entière -> \"2026-10-05\" (le serveur la traite comme \"garage fermé\")\n    start: e.start.dateTime || e.start.date,\n    end: e.end.dateTime || e.end.date,\n  }));\nreturn [{ json: { events } }];\n"
+      },
+      "id": "26aa451e-6c77-4a91-8d6e-3d35b991df8c",
+      "name": "Formater les créneaux occupés",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ events: $json.events }) }}",
+        "options": {}
+      },
+      "id": "0dd0c76f-c923-4b00-a54b-bd28a5efe352",
+      "name": "Répondre – Liste",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-events-create",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "7ab683b1-eaab-482b-81d5-7ce4e75ff873",
+      "name": "Webhook – Créer RDV",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ⚙️ CONFIG DES GARAGES — une entrée par garage (même id que le YAML côté serveur)\nconst GARAGES = {\n  \"garage-demo\": {\n    calendarId: \"primary\",               // ou l'ID d'un agenda dédié au garage\n    timezone: \"Europe/Paris\",\n    notifyEmail: \"toi@exemple.com\",      // qui reçoit les messages et rapports d'appel\n    smsFrom: \"+33100000000\",             // numéro Twilio (ou Sender ID alphanumérique, ex. \"GARAGEDEMO\")\n  },\n  \"dentiste-demo\": {\n    calendarId: \"ID_AGENDA_CABINET@group.calendar.google.com\",\n    timezone: \"Europe/Paris\",\n    notifyEmail: \"toi@exemple.com\",\n    smsFrom: \"+33100000001\",\n  },\n};\n\nconst body = $input.first().json.body;\nconst g = GARAGES[body.tenant_id];\nif (!g) throw new Error(`Garage inconnu : ${body.tenant_id}`);\nconst a = body.appointment;\n// Garage : véhicule + immat. Cabinet dentaire : nouveau patient ou non. Les lignes null sont retirées.\nconst isPatient = a.new_patient === true || a.new_patient === false;\nconst vehicle = a.vehicle ? `${a.vehicle}${a.plate ? ' (' + a.plate + ')' : ''}` : null;\nconst description = [\n  `${isPatient ? 'Patient' : 'Client'} : ${a.customer_name}`,\n  `Téléphone : ${a.customer_phone || '—'}`,\n  vehicle ? `Véhicule : ${vehicle}` : null,\n  isPatient ? `Dossier : ${a.new_patient ? 'nouveau patient' : 'déjà patient'}` : null,\n  `Motif : ${a.service_label}`,\n  `Demande : ${a.problem_description}`,\n  '',\n  'Pris par l\\'agent vocal IA',\n].filter(l => l !== null).join('\\n');\nconst event = {\n  summary: [a.service_label, a.customer_name, a.vehicle, a.new_patient === true ? 'NOUVEAU PATIENT' : '']\n    .filter(Boolean).join(' – '),\n  description,\n  start: { dateTime: a.start, timeZone: g.timezone },\n  end: { dateTime: a.end, timeZone: g.timezone },\n  extendedProperties: { private: { source: 'agent-vocal', customer_phone: a.customer_phone || '' } },\n};\nconst sms = `${a.garage_name} : votre RDV du ${a.label} est confirmé (${a.service_label}). `\n  + `Adresse : ${a.garage_address}. Pour modifier ou annuler, appelez-nous.`;\nreturn [{ json: { calendarId: g.calendarId, event, smsFrom: g.smsFrom, smsTo: a.customer_phone || '', sms } }];\n"
+      },
+      "id": "d0531c1e-cd0c-4f9c-826b-bc7031952f35",
+      "name": "Préparer l'événement + SMS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($json.calendarId) }}/events",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.event) }}"
+      },
+      "id": "64e50f55-d5c7-4a17-8e21-4d16e9b79967",
+      "name": "Google Agenda – Créer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, event_id: $json.id }) }}",
+        "options": {}
+      },
+      "id": "040e1483-7365-4200-a92c-66e1df0375ba",
+      "name": "Répondre – RDV créé",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b30cc4b5-4690-4c4a-8d2d-8c0522d4833f",
+              "leftValue": "={{ $('Préparer l\\'événement + SMS').item.json.smsTo }}",
+              "rightValue": "^\\+33[67]\\d{8}$|^\\+(?!33)[1-9]\\d{6,14}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1d48e161-1954-4818-abec-e29b7370e3e6",
+      "name": "Numéro de mobile ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "from": "={{ $('Préparer l\\'événement + SMS').item.json.smsFrom }}",
+        "to": "={{ $('Préparer l\\'événement + SMS').item.json.smsTo }}",
+        "message": "={{ $('Préparer l\\'événement + SMS').item.json.sms }}",
+        "options": {}
+      },
+      "id": "25d4fe5c-b2ca-40c6-b530-a4caaf1f55d4",
+      "name": "SMS de confirmation",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        280
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Webhook – Lister RDV": {
+      "main": [
+        [
+          {
+            "node": "Préparer la recherche",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer la recherche": {
+      "main": [
+        [
+          {
+            "node": "Google Agenda – Événements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Agenda – Événements": {
+      "main": [
+        [
+          {
+            "node": "Formater les créneaux occupés",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formater les créneaux occupés": {
+      "main": [
+        [
+          {
+            "node": "Répondre – Liste",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook – Créer RDV": {
+      "main": [
+        [
+          {
+            "node": "Préparer l'événement + SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer l'événement + SMS": {
+      "main": [
+        [
+          {
+            "node": "Google Agenda – Créer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Agenda – Créer": {
+      "main": [
+        [
+          {
+            "node": "Répondre – RDV créé",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre – RDV créé": {
+      "main": [
+        [
+          {
+            "node": "Numéro de mobile ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Numéro de mobile ?": {
+      "main": [
+        [
+          {
+            "node": "SMS de confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

@@ -1,0 +1,6 @@
+pipecat-ai[deepgram,cartesia,mistral,anthropic,openai,google,silero,websocket,runner]==1.12.0
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-dotenv>=1.0
+pyyaml>=6.0
+python-multipart>=0.0.9

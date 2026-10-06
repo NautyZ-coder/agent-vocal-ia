@@ -1,0 +1,77 @@
+# Cabinet dentaire de démo (même moteur que le garage, profil "dentiste").
+id: dentiste-demo
+profile: dentiste            # garage | dentiste : choisit le prompt et le formulaire de RDV
+name: "Cabinet dentaire du Docteur Martin"
+# Numéro Twilio du cabinet (format E.164). Factice tant que la démo passe par la page /appel?g=dentiste-demo.
+phone_numbers:
+  - "+33100000001"
+timezone: "Europe/Paris"
+address: "8 place Bellecour, 69002 Lyon"
+
+agent:
+  name: "Chloé"
+  title: "l'assistante virtuelle"
+  # Dit si le modèle raccroche sans avoir dit au revoir
+  goodbye: "Merci pour votre appel, bonne journée et à bientôt au cabinet. Au revoir !"
+  # Voix Cartesia française, douce et posée (filtre "French" dans la librairie)
+  voice_id: "80f117a5-5196-4b64-8b4c-efda3d3ab176"   # Maëlle B – Care Desk
+  # L'annonce "assistante virtuelle" est obligatoire (AI Act art. 50), l'enregistrement aussi (RGPD).
+  greeting: >-
+    Cabinet dentaire du Docteur Martin, bonjour ! Je suis Chloé, l'assistante virtuelle du cabinet.
+    Cet appel peut être enregistré. Comment est-ce que je peux vous aider ?
+
+opening_hours:
+  mon: ["09:00-12:30", "14:00-19:00"]
+  tue: ["09:00-12:30", "14:00-19:00"]
+  wed: ["09:00-12:30", "14:00-19:00"]
+  thu: ["09:00-12:30", "14:00-19:00"]
+  fri: ["09:00-12:30", "14:00-18:00"]
+  sat: ["09:00-12:00"]
+  sun: []
+
+# Le SMS est désactivé dans n8n : seule la confirmation par e-mail est annoncée.
+confirmations:
+  sms: false
+
+booking:
+  capacity: 1               # un seul fauteuil / un seul praticien
+  slot_step_min: 30
+  min_notice_hours: 1       # une urgence doit pouvoir passer dans l'heure
+  horizon_days: 30
+  max_slots_offered: 3
+
+services:
+  - id: urgence
+    label: "Douleur / urgence dentaire"
+    duration_min: 30
+  - id: controle
+    label: "Contrôle / bilan (patient déjà suivi)"
+    duration_min: 30
+  - id: detartrage
+    label: "Détartrage"
+    duration_min: 30
+  - id: nouveau_patient
+    label: "Première consultation (nouveau patient)"
+    duration_min: 45
+  - id: soin
+    label: "Soin prévu par le docteur (carie, couronne, dévitalisation)"
+    duration_min: 60
+  - id: devis
+    label: "Consultation devis (implant, orthodontie, blanchiment)"
+    duration_min: 30
+  - id: autre
+    label: "Autre motif"
+    duration_min: 30
+
+# Secrétariat ou portable du praticien. Vide = pas de transfert, on prend un message.
+transfer_number: ""
+
+# Infos que l'agent peut donner. Il ne doit rien inventer en dehors de ça.
+faq: |
+  - Le cabinet est conventionné secteur 1. Carte Vitale acceptée, tiers payant sur la part Sécurité sociale.
+  - Le cabinet est au premier étage avec ascenseur, accessible en fauteuil roulant.
+  - Parking public Bellecour à deux minutes à pied.
+  - Merci d'apporter sa carte Vitale et sa carte de mutuelle au rendez-vous.
+  - Pour annuler ou déplacer un rendez-vous, prévenir au moins 24 heures avant.
+  - Soir, dimanche et jours fériés : la garde dentaire du Rhône est joignable via le 15.
+  - Le cabinet ne fait pas d'orthodontie pour les enfants, il oriente vers un orthodontiste.

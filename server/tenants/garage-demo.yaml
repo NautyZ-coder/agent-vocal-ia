@@ -1,0 +1,70 @@
+# Un fichier = un garage client. Copie ce fichier pour ajouter un garage.
+id: garage-demo
+name: "Garage Démo Auto"
+# Numéros Twilio qui renvoient vers ce garage (format E.164)
+phone_numbers:
+  - "+33100000000"
+timezone: "Europe/Paris"
+address: "12 rue des Artisans, 69000 Lyon"
+
+agent:
+  name: "Lucas"
+  title: "l'assistant virtuel"
+  # Voix Cartesia française (choisir dans la librairie Cartesia, filtre "French")
+  voice_id: ""
+  # Phrase d'accueil dite mot pour mot. L'annonce "assistante virtuelle" est obligatoire (AI Act art. 50).
+  greeting: >-
+    Garage Démo Auto, bonjour ! Je suis Lucas, l'assistant virtuel du garage.
+    Je peux vous prendre un rendez-vous ou transmettre un message. Qu'est-ce que je peux faire pour vous ?
+
+# Horaires d'ouverture (atelier). Jours : mon tue wed thu fri sat sun
+opening_hours:
+  mon: ["08:00-12:00", "14:00-18:00"]
+  tue: ["08:00-12:00", "14:00-18:00"]
+  wed: ["08:00-12:00", "14:00-18:00"]
+  thu: ["08:00-12:00", "14:00-18:00"]
+  fri: ["08:00-12:00", "14:00-17:00"]
+  sat: ["09:00-12:00"]
+  sun: []
+
+booking:
+  capacity: 2               # nombre de RDV en parallèle (ponts / mécanos)
+  slot_step_min: 30         # granularité des créneaux proposés
+  min_notice_hours: 3       # pas de RDV dans moins de X heures
+  horizon_days: 21          # jusqu'où on cherche des dispos
+  max_slots_offered: 3      # comme dans le Reel : 3 créneaux max
+
+services:
+  - id: entretien
+    label: "Révision / entretien"
+    duration_min: 60
+  - id: vidange
+    label: "Vidange"
+    duration_min: 30
+  - id: pneus
+    label: "Pneus (montage, équilibrage, permutation)"
+    duration_min: 45
+  - id: freinage
+    label: "Freinage (plaquettes, disques)"
+    duration_min: 90
+  - id: diagnostic
+    label: "Diagnostic (voyant allumé, bruit, panne)"
+    duration_min: 60
+  - id: climatisation
+    label: "Recharge / contrôle climatisation"
+    duration_min: 45
+  - id: autre
+    label: "Autre intervention / pose de pièces fournies"
+    duration_min: 60
+
+# Transfert vers un humain ("je veux parler à quelqu'un"). Vide = pas de transfert, on prend un message.
+transfer_number: ""
+
+# Infos que l'agent peut donner. Il ne doit rien inventer en dehors de ça.
+faq: |
+  - Le garage répare toutes marques, essence, diesel, hybride.
+  - Pas de contrôle technique sur place.
+  - Pas de véhicule de prêt.
+  - Les devis carrosserie se font sur place, sans rendez-vous, aux heures d'ouverture.
+  - Le client peut apporter ses propres pièces, mais la main d'œuvre n'est alors pas garantie sur la pièce.
+  - Paiement : CB, espèces, virement.

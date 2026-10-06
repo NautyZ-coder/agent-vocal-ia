@@ -1,0 +1,4 @@
+# HTTPS automatique (Let's Encrypt). Remplace par ton sous-domaine, qui doit pointer (DNS A) vers l'IP du VPS.
+voice.example.com {
+	reverse_proxy voice-agent:8765
+}

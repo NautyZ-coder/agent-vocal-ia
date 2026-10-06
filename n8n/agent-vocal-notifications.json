@@ -1,0 +1,355 @@
+{
+  "name": "Agent vocal – Messages & rapports d'appel",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-message",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "fff23128-146a-4c72-a0cc-38b70ac740f8",
+      "name": "Webhook – Message",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {}
+      },
+      "id": "a92e835e-ac49-4502-b9bd-2cd8f7d75314",
+      "name": "Répondre OK – Message",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ⚙️ CONFIG DES GARAGES — une entrée par garage (même id que le YAML côté serveur)\nconst GARAGES = {\n  \"garage-demo\": {\n    calendarId: \"primary\",               // ou l'ID d'un agenda dédié au garage\n    timezone: \"Europe/Paris\",\n    notifyEmail: \"toi@exemple.com\",      // qui reçoit les messages et rapports d'appel\n    smsFrom: \"+33100000000\",             // numéro Twilio (ou Sender ID alphanumérique, ex. \"GARAGEDEMO\")\n  },\n  \"dentiste-demo\": {\n    calendarId: \"ID_AGENDA_CABINET@group.calendar.google.com\",\n    timezone: \"Europe/Paris\",\n    notifyEmail: \"toi@exemple.com\",\n    smsFrom: \"+33100000001\",\n  },\n};\n\nconst body = $input.first().json.body;\nconst g = GARAGES[body.tenant_id] || {};\nconst m = body.message;\nreturn [{ json: {\n  to: body.notify_email || g.notifyEmail,\n  subject: `📞 Message de ${m.customer_name} – à rappeler`,\n  text: `${m.customer_name} a appelé le ${new Date(m.at).toLocaleString('fr-FR', { timeZone: g.timezone || 'Europe/Paris' })}.\\n\\n`\n      + `Objet : ${m.reason}\\n\\nRappeler au : ${m.callback_number || 'numéro inconnu'}\\n\\n— Agent vocal IA`,\n} }];\n"
+      },
+      "id": "2155c1e9-e148-405a-ad16-0009c0aed66d",
+      "name": "Formater le message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "201c44d1-41f2-4f99-acd3-f9c3aae77be3",
+      "name": "Mail au garage – Message",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        660,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-booking",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c2d306f8-2756-45ad-885f-8e4d460515f4",
+      "name": "Webhook – Nouveau RDV",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {}
+      },
+      "id": "e4a25e24-8950-4b5c-a7e4-352335f36ede",
+      "name": "Répondre OK – Nouveau RDV",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ⚙️ CONFIG DES GARAGES — une entrée par garage (même id que le YAML côté serveur)\nconst GARAGES = {\n  \"garage-demo\": {\n    calendarId: \"primary\",               // ou l'ID d'un agenda dédié au garage\n    timezone: \"Europe/Paris\",\n    notifyEmail: \"toi@exemple.com\",      // qui reçoit les messages et rapports d'appel\n    smsFrom: \"+33100000000\",             // numéro Twilio (ou Sender ID alphanumérique, ex. \"GARAGEDEMO\")\n  },\n  \"dentiste-demo\": {\n    calendarId: \"ID_AGENDA_CABINET@group.calendar.google.com\",\n    timezone: \"Europe/Paris\",\n    notifyEmail: \"toi@exemple.com\",\n    smsFrom: \"+33100000001\",\n  },\n};\n\nconst body = $input.first().json.body;\nconst g = GARAGES[body.tenant_id] || {};\nconst a = body.appointment;\nreturn [{ json: {\n  to: body.notify_email || g.notifyEmail,\n  subject: `${a.new_patient === true || a.new_patient === false ? '🦷' : '🔧'} Nouveau RDV : ${a.label} – ${a.customer_name}`,\n  text: [\n    `Nouveau rendez-vous pris par l'assistant vocal.`,\n    '',\n    `Quand : ${a.label}`,\n    `Client : ${a.customer_name}`,\n    `Téléphone : ${a.customer_phone || 'non communiqué'}`,\n    a.vehicle ? `Véhicule : ${a.vehicle}${a.plate ? ' (' + a.plate + ')' : ''}` : null,\n    a.new_patient === true ? 'Dossier : nouveau patient' : a.new_patient === false ? 'Dossier : déjà patient' : null,\n    `Motif : ${a.service_label}`,\n    `Demande : ${a.problem_description}`,\n    '',\n    \"Le rendez-vous est déjà dans l'agenda.\",\n  ].filter(l => l !== null).join('\\n'),\n} }];\n"
+      },
+      "id": "8b2d0e1a-fccf-448c-bd28-401b0ece969e",
+      "name": "Formater le nouveau RDV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "ac920482-7e39-445d-a392-e12c08507d78",
+      "name": "Mail au garage – Nouveau RDV",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        660,
+        600
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mail de confirmation au client (seulement s'il a donné une adresse valide)\nconst a = $input.first().json.body.appointment;\nif (!a.customer_email) return [];\nreturn [{ json: {\n  to: a.customer_email,\n  subject: `✅ Votre rendez-vous du ${a.label} est confirmé – ${a.garage_name}`,\n  text: [\n    `Bonjour ${a.customer_name},`,\n    '',\n    `Votre rendez-vous au ${a.garage_name} est confirmé :`,\n    '',\n    `📅 ${a.label}`,\n    `${a.vehicle ? '🔧' : '🦷'} ${a.service_label}`,\n    a.vehicle ? `🚗 ${a.vehicle}${a.plate ? ' (' + a.plate + ')' : ''}` : null,\n    `📍 ${a.garage_address}`,\n    '',\n    `Pour modifier ou annuler, il suffit de nous rappeler${a.vehicle ? '' : ' au moins 24 heures avant'}.`,\n    '',\n    'À bientôt,',\n    `L'équipe du ${a.garage_name}`,\n  ].filter(l => l !== null).join('\\n'),\n} }];\n"
+      },
+      "id": "8188f8d7-89a6-4450-a40c-839d6d51051d",
+      "name": "Formater la confirmation client",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "8141bdd2-f9ce-4bab-af95-5b74513d48d8",
+      "name": "Mail de confirmation au client",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        660,
+        800
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-call-report",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f383d616-3ae0-4a7b-b5fe-f13b445fd4e3",
+      "name": "Webhook – Rapport d'appel",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {}
+      },
+      "id": "f4725db8-f0a9-4be6-ab60-bb911ecb19f8",
+      "name": "Répondre OK – Rapport",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ⚙️ CONFIG DES GARAGES — une entrée par garage (même id que le YAML côté serveur)\nconst GARAGES = {\n  \"garage-demo\": {\n    calendarId: \"primary\",               // ou l'ID d'un agenda dédié au garage\n    timezone: \"Europe/Paris\",\n    notifyEmail: \"toi@exemple.com\",      // qui reçoit les messages et rapports d'appel\n    smsFrom: \"+33100000000\",             // numéro Twilio (ou Sender ID alphanumérique, ex. \"GARAGEDEMO\")\n  },\n  \"dentiste-demo\": {\n    calendarId: \"ID_AGENDA_CABINET@group.calendar.google.com\",\n    timezone: \"Europe/Paris\",\n    notifyEmail: \"toi@exemple.com\",\n    smsFrom: \"+33100000001\",\n  },\n};\n\nconst body = $input.first().json.body;\nconst g = GARAGES[body.tenant_id] || {};\nconst r = body.report;\nconst labels = { rdv_pris: '✅ RDV pris', message: '📝 Message laissé', transfert: '↪️ Transféré', sans_suite: '⚪ Sans suite' };\nconst rdv = (r.appointments || []).map(a => {\n  const who = [\n    a.customer_name,\n    a.vehicle ? `${a.vehicle}${a.plate ? ' (' + a.plate + ')' : ''}` : '',\n    a.new_patient === true ? 'nouveau patient' : a.new_patient === false ? 'déjà patient' : '',\n  ].filter(Boolean).join(', ');\n  return `- ${a.label} : ${a.service_label}, ${who}\\n  ${a.problem_description}`;\n}).join('\\n');\nconst msgs = (r.messages || []).map(m => `- ${m.customer_name} : ${m.reason} (rappel ${m.callback_number})`).join('\\n');\nconst transcript = (r.transcript || []).map(t => `${t.role === 'agent' ? 'Agent' : 'Client'} : ${t.text}`).join('\\n');\nreturn [{ json: {\n  to: body.notify_email || g.notifyEmail,\n  outcome: r.outcome,\n  subject: `${labels[r.outcome] || r.outcome} – appel de ${r.caller_number || 'numéro masqué'} (${Math.round(r.duration_s / 60 * 10) / 10} min)`,\n  text: [\n    rdv && `RENDEZ-VOUS\\n${rdv}`,\n    msgs && `MESSAGES\\n${msgs}`,\n    `TRANSCRIPTION\\n${transcript}`,\n  ].filter(Boolean).join('\\n\\n'),\n} }];\n"
+      },
+      "id": "b9c80822-abc5-467f-a20f-da82ed0cbc4b",
+      "name": "Formater le rapport",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "ff2b08b7-182c-4dc5-8701-d6186debf926",
+      "name": "Mail au garage – Rapport",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        660,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Webhook – Message": {
+      "main": [
+        [
+          {
+            "node": "Répondre OK – Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre OK – Message": {
+      "main": [
+        [
+          {
+            "node": "Formater le message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formater le message": {
+      "main": [
+        [
+          {
+            "node": "Mail au garage – Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook – Rapport d'appel": {
+      "main": [
+        [
+          {
+            "node": "Répondre OK – Rapport",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre OK – Rapport": {
+      "main": [
+        [
+          {
+            "node": "Formater le rapport",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formater le rapport": {
+      "main": [
+        [
+          {
+            "node": "Mail au garage – Rapport",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook – Nouveau RDV": {
+      "main": [
+        [
+          {
+            "node": "Répondre OK – Nouveau RDV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre OK – Nouveau RDV": {
+      "main": [
+        [
+          {
+            "node": "Formater le nouveau RDV",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Formater la confirmation client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formater le nouveau RDV": {
+      "main": [
+        [
+          {
+            "node": "Mail au garage – Nouveau RDV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formater la confirmation client": {
+      "main": [
+        [
+          {
+            "node": "Mail de confirmation au client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

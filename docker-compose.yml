@@ -1,0 +1,28 @@
+services:
+  voice-agent:
+    build: ./server
+    container_name: voice-agent
+    restart: unless-stopped
+    env_file: ./server/.env
+    volumes:
+      - ./server/tenants:/app/tenants:ro   # ajouter un garage = ajouter un YAML + restart
+      - ./server/data:/app/data
+    # Accessible seulement en local : le reverse proxy (Caddy/Traefik/Nginx) fait le HTTPS devant.
+    ports:
+      - "127.0.0.1:8765:8765"
+
+  # Option : si RIEN n'écoute déjà sur les ports 80/443 du VPS, lance aussi Caddy :
+  #   docker compose --profile caddy up -d
+  caddy:
+    profiles: ["caddy"]
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+
+volumes:
+  caddy_data:
