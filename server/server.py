@@ -160,7 +160,7 @@ async def appel_page(g: str = ""):
     tenant = TENANTS.get(g or DEFAULT_TENANT)
     if not WEB_CALL_CODE or not tenant:
         return Response(status_code=404)
-    place = "du cabinet" if tenant.profile == "dentiste" else "du garage"
+    place = {"dentiste": "du cabinet", "restaurant": "du restaurant"}.get(tenant.profile, "du garage")
     return HTMLResponse(APPEL_HTML.replace("{{GARAGE_NAME}}", escape(tenant.name)).replace("{{PLACE}}", place))
 
 

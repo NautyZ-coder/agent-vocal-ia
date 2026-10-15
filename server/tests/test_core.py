@@ -308,3 +308,90 @@ def test_appel_page_dentiste():
     assert r.status_code == 200 and "Cabinet dentaire du Docteur Martin" in r.text
     assert "accueil du cabinet est assuré par une IA" in r.text and "{{" not in r.text
     assert "accueil du garage" in c.get("/appel?g=garage-demo").text
+
+
+# ── Restaurant (profil "restaurant") ────────────────────────────────────────
+
+R = load_tenants()["restaurant-demo"]
+# mardi 29 septembre 2026, 10h
+NOW_R = datetime(2026, 9, 29, 10, 0, tzinfo=TZ)
+
+
+def test_restaurant_profile_prompt_and_tools():
+    from app.prompt import build_system_prompt
+    from app.tools_restaurant import book_appointment as book_r
+
+    assert R.profile == "restaurant"
+    p = build_system_prompt(R, NOW_R, "+33611111111")
+    assert "Camille" in p and "personnes" in p and "allergie" in p.lower() and "8 personnes" in p
+    assert "garage" not in p.lower() and "véhicule" not in p.lower() and "cabinet" not in p.lower()
+    assert "SMS" not in p and "90 minutes" in p
+    names = [f.__name__ for f in tools.tools_for(R)]
+    assert names == ["check_availability", "book_appointment", "take_message", "transfer_to_human", "end_call"]
+    assert book_r in tools.tools_for(R)
+    assert "restaurant" in R.goodbye and "assistante virtuelle" in R.greeting
+
+
+def test_restaurant_lunch_dinner_and_last_seating():
+    # midi : 12h-15h avec des tables de 90 min -> arrivées 12h à 13h30 ; soir : 19h à 21h30
+    midi = find_slots(R, 90, [], NOW_R, date(2026, 9, 29), "midi")
+    soir = find_slots(R, 90, [], NOW_R, date(2026, 9, 29), "soir")
+    assert all(datetime.fromisoformat(s["start"]).hour in (12, 13) for s in midi["slots"])
+    hours = [datetime.fromisoformat(s["start"]).strftime("%H:%M") for s in soir["slots"]]
+    assert hours[0] == "19:00" and hours[-1] == "21:30"
+    # lundi fermé : on bascule sur le mardi suivant
+    res = find_slots(R, 90, [], NOW_R, date(2026, 10, 5), "soir")
+    assert res["requested_date_available"] is False and res["date"] == "2026-10-06"
+
+
+def test_preferred_time_returns_nearest_slots():
+    from datetime import time as dtime
+
+    res = find_slots(R, 90, [], NOW_R, date(2026, 10, 3), "soir", dtime(20, 0))
+    assert res["requested_time_available"] is True
+    assert [s["start"][11:16] for s in res["slots"]] == ["19:30", "20:00", "20:30"]
+    # 20h complet (10 tables) : on le dit et on propose autour
+    full = [(datetime(2026, 10, 3, 20, 0, tzinfo=TZ), datetime(2026, 10, 3, 21, 30, tzinfo=TZ))] * 10
+    res = find_slots(R, 90, full, NOW_R, date(2026, 10, 3), "soir", dtime(20, 0))
+    assert res["requested_time_available"] is False
+    assert "20:00" not in [s["start"][11:16] for s in res["slots"]]
+    # sans heure précise : comportement inchangé (créneaux étalés), pas de clé en plus
+    assert "requested_time_available" not in find_slots(R, 90, [], NOW_R, date(2026, 10, 3), "soir")
+
+
+def test_restaurant_book_flow(tmp_path, monkeypatch):
+    from app.tools_restaurant import book_appointment as book_r
+
+    backend = MockBackend(tmp_path)
+    s = tools.CallSession(tenant=R, backend=backend, caller_number="+33611111111")
+    monkeypatch.setattr(tools.CallSession, "now", lambda self: NOW_R)
+
+    p = FakeParams(s)
+    asyncio.run(tools.check_availability(p, "table", "2026-10-03", "soir", "20:00"))
+    assert p.result["requested_time_available"] is True and "note" not in p.result
+    start = next(x["start"] for x in p.result["slots"] if x["start"][11:16] == "20:00")
+
+    # groupe trop grand : refusé, l'agent doit prendre un message
+    p_big = FakeParams(s)
+    asyncio.run(book_r(p_big, start, "table", "Jean Dupont", 12))
+    assert p_big.result["ok"] is False and "take_message" in p_big.result["error"] and not s.appointments
+
+    p2 = FakeParams(s)
+    asyncio.run(book_r(p2, start, "table", "Jean Dupont", 4, "une allergie aux arachides",
+                       customer_email="jean point dupont arobase gmail point com"))
+    assert p2.result["ok"] is True and p2.result["email_confirmation"] == "jean.dupont@gmail.com"
+    appt = s.appointments[0]
+    assert appt["party_size"] == 4 and appt["vehicle"] == ""
+    assert appt["problem_description"] == "4 personnes. une allergie aux arachides"
+    assert appt["end"].startswith("2026-10-03T21:30")
+    assert s.booking_in_progress is False and s.last_booking_at > 0  # garde-fou end_call actif
+
+
+def test_appel_page_restaurant():
+    from fastapi.testclient import TestClient
+    import server
+
+    server.WEB_CALL_CODE = "abc"
+    r = TestClient(server.app).get("/appel?g=restaurant-demo")
+    assert r.status_code == 200 and "Le Comptoir des Halles" in r.text
+    assert "accueil du restaurant est assuré par une IA" in r.text and "{{" not in r.text

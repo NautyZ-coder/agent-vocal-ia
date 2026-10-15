@@ -12,6 +12,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+from datetime import time as dtime  # "time" est déjà le module (time.monotonic)
 from zoneinfo import ZoneInfo
 
 import aiohttp
@@ -82,14 +83,15 @@ def _parse_start(value: str, tz: str) -> datetime:
 
 
 async def check_availability(
-    params: FunctionCallParams, service_id: str, preferred_date: str = "", period: str = ""
+    params: FunctionCallParams, service_id: str, preferred_date: str = "", period: str = "", preferred_time: str = ""
 ):
     """Cherche les prochains créneaux libres. À appeler avant de proposer une heure.
 
     Args:
         service_id: Identifiant du type de rendez-vous, pris dans la liste de tes consignes.
         preferred_date: Jour souhaité au format AAAA-MM-JJ. Vide si le client n'a pas de préférence.
-        period: "matin", "apres-midi", ou vide si peu importe.
+        period: "matin", "apres-midi", "midi", "soir", ou vide si peu importe.
+        preferred_time: Heure précise demandée au format HH:MM (ex. "20:00"), avec preferred_date. Vide sinon.
     """
     s = _session(params)
     t = s.tenant
@@ -100,6 +102,12 @@ async def check_availability(
             pref = date.fromisoformat(preferred_date)
         except ValueError:
             pref = None
+    pref_time: dtime | None = None
+    if preferred_time and pref:
+        try:
+            pref_time = dtime.fromisoformat(preferred_time.strip())
+        except ValueError:
+            pref_time = None
     now = s.now()
     try:
         busy = await s.backend.list_busy(t, now, now + timedelta(days=t.booking.horizon_days + 1))
@@ -109,13 +117,15 @@ async def check_availability(
             {"error": "Agenda indisponible. Propose de prendre un message pour qu'on rappelle le client."}
         )
         return
-    res = find_slots(t, svc.duration_min, busy, now, pref, period or None)
+    res = find_slots(t, svc.duration_min, busy, now, pref, period or None, pref_time)
     res["service_id"] = svc.id
     res["service_label"] = svc.label
     if not res["slots"] and not res.get("too_far"):
         res["note"] = "Aucun créneau dans les prochaines semaines : propose de prendre un message."
     elif pref and not res["requested_date_available"]:
         res["note"] = "Le jour demandé est complet ou fermé : annonce-le et propose ces créneaux à la place."
+    elif res.get("requested_time_available") is False:
+        res["note"] = "L'heure demandée n'est pas libre : dis-le et propose les heures les plus proches de la liste."
     await params.result_callback(res)
 
 
@@ -336,4 +346,8 @@ def tools_for(tenant: Tenant) -> list:
         from .tools_dentiste import book_appointment as book_dentiste
 
         return [check_availability, book_dentiste, take_message, transfer_to_human, end_call]
+    if tenant.profile == "restaurant":
+        from .tools_restaurant import book_appointment as book_restaurant
+
+        return [check_availability, book_restaurant, take_message, transfer_to_human, end_call]
     return ALL_TOOLS

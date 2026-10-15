@@ -21,7 +21,7 @@ Chez ton registrar : enregistrement **A** `voice` → IP du VPS. Tu obtiens par 
 git clone <URL-de-ce-repo> ~/agent-vocal && cd ~/agent-vocal/server
 cp .env.example .env && nano .env
 cd .. && docker compose up -d --build
-docker compose logs -f voice-agent      # doit afficher "Garages chargés : dentiste-demo, garage-demo"
+docker compose logs -f voice-agent      # doit afficher "Garages chargés : dentiste-demo, garage-demo, restaurant-demo"
 curl http://127.0.0.1:8765/health
 ```
 Laisse `N8N_WEBHOOK_BASE` vide au premier test : l'agenda est simulé dans `server/data/`.

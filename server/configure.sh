@@ -28,11 +28,14 @@ ask() {  # ask CLE "Question" [secret]
 
 echo "=== Configuration de l'agent vocal ==="
 echo
-# Métier : choisit le client de démo (server/tenants/garage-demo.yaml ou dentiste-demo.yaml)
-[ "$(get DEFAULT_TENANT)" = "dentiste-demo" ] && def=d || def=g
-read -rp "Métier : g = garage, d = cabinet dentaire [$def] : " metier
-metier="${metier:-$def}"
-if [ "$metier" = "d" ]; then set_env DEFAULT_TENANT dentiste-demo; else set_env DEFAULT_TENANT garage-demo; fi
+# Métier : choisit le client de démo (server/tenants/garage-demo.yaml, dentiste-demo.yaml ou restaurant-demo.yaml)
+case "$(get DEFAULT_TENANT)" in dentiste-demo) def=d ;; restaurant-demo) def=r ;; *) def=g ;; esac
+read -rp "Métier : g = garage, d = cabinet dentaire, r = restaurant [$def] : " metier
+case "${metier:-$def}" in
+  d) set_env DEFAULT_TENANT dentiste-demo ;;
+  r) set_env DEFAULT_TENANT restaurant-demo ;;
+  *) set_env DEFAULT_TENANT garage-demo ;;
+esac
 echo
 ask PUBLIC_HOST "Sous-domaine de l'agent, sans https:// (ex. voice.mondomaine.com)"
 ask DEEPGRAM_API_KEY "Clé Deepgram"

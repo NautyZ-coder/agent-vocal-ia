@@ -65,6 +65,11 @@ def _period_ok(dt: datetime, period: str | None) -> bool:
         return dt.hour < 12
     if period == "apres-midi":
         return dt.hour >= 12
+    # Restaurant : service du midi / du soir
+    if period == "midi":
+        return dt.hour < 16
+    if period == "soir":
+        return dt.hour >= 16
     return True
 
 
@@ -85,8 +90,9 @@ def find_slots(
     now: datetime,
     preferred_date: date | None = None,
     period: str | None = None,
+    preferred_time: time | None = None,
 ) -> dict:
-    """Renvoie les créneaux à proposer + si le jour demandé était dispo."""
+    """Renvoie les créneaux à proposer + si le jour (et l'heure) demandés étaient dispo."""
     tz = ZoneInfo(tenant.timezone)
     now = now.astimezone(tz)
     n = tenant.booking.max_slots_offered
@@ -110,9 +116,16 @@ def find_slots(
         if d == preferred_date:
             requested_available = bool(slots)
         if slots:
-            chosen = _spread(slots, n)
+            res = {"requested_date_available": requested_available}
+            if preferred_time and d == preferred_date:
+                # Heure précise demandée (ex. restaurant à 20 heures) : les créneaux les plus proches, pas étalés.
+                res["requested_time_available"] = any(s.time() == preferred_time for s in slots)
+                target = datetime.combine(d, preferred_time, tzinfo=tz)
+                chosen = sorted(sorted(slots, key=lambda s: abs(s - target))[:n])
+            else:
+                chosen = _spread(slots, n)
             return {
-                "requested_date_available": requested_available,
+                **res,
                 "date": d.isoformat(),
                 "date_label": fr_date(d),
                 "slots": [{"start": s.isoformat(), "label": fr_datetime(s)} for s in chosen],

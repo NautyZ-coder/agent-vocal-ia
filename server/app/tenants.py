@@ -13,7 +13,7 @@ TENANTS_DIR = Path(os.getenv("TENANTS_DIR", Path(__file__).resolve().parent.pare
 DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
 # Métier du client : choisit le prompt et le formulaire de réservation.
-PROFILES = ("garage", "dentiste")
+PROFILES = ("garage", "dentiste", "restaurant")
 
 
 @dataclass

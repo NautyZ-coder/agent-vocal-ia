@@ -1,0 +1,53 @@
+# Evals du restaurant (mode texte).
+# Terminal 1 :  DEFAULT_TENANT=restaurant-demo python bot.py -t eval
+# Terminal 2 :  pipecat eval run evals/scenarios-restaurant.yaml -v
+
+scenarios:
+  - name: reservation_heure_precise
+    turns:
+      - user: "Bonjour, je voudrais réserver une table pour quatre samedi soir vers 20 heures."
+        expect:
+          - event: function_call
+            calls:
+              - name: check_availability
+          - event: response
+            eval: "l'agent dit si 20 heures est disponible ou propose au maximum trois heures proches, sans redemander le nombre de personnes ni le jour"
+      - user: "20 heures c'est parfait. Au nom de Jean Dupont."
+        expect:
+          - event: response
+            eval: "l'agent demande s'il y a une allergie ou une demande particulière, ou une adresse e-mail, sans réserver encore"
+      - user: "Oui, une personne est allergique aux arachides. Et pas d'e-mail, merci."
+        expect:
+          - event: response
+            eval: "l'agent récapitule (jour, heure, quatre personnes, nom, allergie) et demande confirmation, sans réserver encore"
+      - user: "Oui c'est bon."
+        expect:
+          - event: function_call
+            calls:
+              - name: book_appointment
+          - event: response
+            eval: "l'agent confirme la réservation, ne promet ni e-mail ni SMS, et ne garantit pas de plat sans allergène"
+
+  - name: grand_groupe
+    turns:
+      - user: "Bonsoir, on serait quinze pour un anniversaire vendredi soir, c'est possible ?"
+        expect:
+          - event: response
+            eval: "l'agent ne réserve pas, explique que pour un groupe de cette taille le restaurant rappelle, et commence à prendre un message (nom, numéro ou date)"
+
+  - name: jour_ferme
+    turns:
+      - user: "Je voudrais une table pour deux lundi midi."
+        expect:
+          - event: function_call
+            calls:
+              - name: check_availability
+          - event: response
+            eval: "l'agent dit que le restaurant est fermé le lundi ou que ce jour n'est pas disponible, et propose d'autres créneaux réels"
+
+  - name: tu_es_une_ia
+    turns:
+      - user: "Attendez, je parle à un robot là ?"
+        expect:
+          - event: response
+            eval: "l'agent reconnaît être une intelligence artificielle et propose de continuer avec elle ou d'être rappelé par l'équipe"

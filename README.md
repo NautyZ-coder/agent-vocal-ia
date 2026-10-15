@@ -1,10 +1,11 @@
-# Agent vocal IA – prise de rendez-vous (garage, cabinet dentaire…)
+# Agent vocal IA – prise de rendez-vous (garage, cabinet dentaire, restaurant…)
 
 Une IA qui décroche le téléphone d'une petite entreprise, regarde le **vrai agenda**, propose des créneaux, prend le rendez-vous et prévient l'équipe par mail. Elle parle français et annonce dès le début qu'elle est une IA.
 
-Deux métiers sont fournis en exemple :
+Trois métiers sont fournis en exemple :
 - `garage-demo` : un garage (véhicule, immatriculation, travaux)
 - `dentiste-demo` : un cabinet dentaire (urgences en priorité, jamais de conseil médical, renvoi vers le 15)
+- `restaurant-demo` : un restaurant (réservation de table : couverts, service midi ou soir, heure précise, allergies)
 
 Un client = un fichier YAML. Tu en ajoutes autant que tu veux sur le même serveur.
 
@@ -71,6 +72,7 @@ Le pas à pas complet est dans [docs/DEPLOY.md](docs/DEPLOY.md) : clés, HTTPS (
 ## Métiers (`profile` dans le YAML)
 - `garage` (défaut) : véhicule, immatriculation, travaux
 - `dentiste` : déjà patient ou non, motif, règles médicales
+- `restaurant` : nombre de couverts (groupe au-delà de `extra.max_party_size` → message pour être rappelé), allergies, midi/soir, heure précise demandée (`preferred_time`)
 
 Un nouveau métier = un prompt dans `server/app/prompt.py` + (si les champs changent) un `book_appointment` dans `server/app/tools_<métier>.py`, branché dans `tools_for()`.
 
@@ -83,6 +85,7 @@ cd server && pip install -r requirements-dev.txt
 python -m pytest -q                                   # logique, sans clé API
 DEFAULT_TENANT=dentiste-demo python bot.py -t eval    # terminal 1 (agenda simulé)
 pipecat eval run evals/scenarios-dentiste.yaml -v     # terminal 2 : conversations en mode texte
+# restaurant : DEFAULT_TENANT=restaurant-demo + evals/scenarios-restaurant.yaml
 ```
 
 ## Structure
@@ -91,9 +94,10 @@ server/
   server.py            webhook Twilio, page /appel, WebSockets audio, sécurité
   bot.py               pipeline vocal STT → LLM → TTS
   check.py             diagnostic complet de la config (à lancer dans le conteneur)
-  app/prompt.py        prompts (garage, dentiste) construits depuis le YAML
+  app/prompt.py        prompts (garage, dentiste, restaurant) construits depuis le YAML
   app/tools.py         outils : check_availability, book_appointment, take_message, transfer_to_human, end_call
   app/tools_dentiste.py formulaire de RDV du cabinet
+  app/tools_restaurant.py réservation de table (couverts, allergies)
   app/slots.py         calcul des créneaux (pur, testé)
   app/backend.py       n8n (prod) ou agenda simulé (tests)
   app/webcall.py + app/static/appel.html   appel depuis le navigateur

@@ -1,0 +1,67 @@
+# Restaurant de démo (même moteur que le garage, profil "restaurant").
+id: restaurant-demo
+profile: restaurant          # garage | dentiste | restaurant : choisit le prompt et le formulaire de RDV
+name: "Restaurant Le Comptoir des Halles"
+# Numéro Twilio du restaurant (format E.164). Factice tant que la démo passe par la page /appel?g=restaurant-demo.
+phone_numbers:
+  - "+33100000002"
+timezone: "Europe/Paris"
+address: "12 rue Mercière, 69002 Lyon"
+
+agent:
+  name: "Camille"
+  title: "l'assistante virtuelle"
+  # Dit si le modèle raccroche sans avoir dit au revoir
+  goodbye: "Merci pour votre appel, à très bientôt au restaurant. Au revoir !"
+  # Même voix Cartesia que le cabinet (déjà validée en production)
+  voice_id: "80f117a5-5196-4b64-8b4c-efda3d3ab176"
+  # L'annonce "assistante virtuelle" est obligatoire (AI Act art. 50), l'enregistrement aussi (RGPD).
+  greeting: >-
+    Le Comptoir des Halles, bonjour ! Je suis Camille, l'assistante virtuelle du restaurant.
+    Cet appel peut être enregistré. Comment est-ce que je peux vous aider ?
+
+# Une plage = première arrivée possible jusqu'à l'heure où la table doit être libérée.
+# Avec des tables de 90 minutes : dernière arrivée 13 heures 30 le midi, 21 heures 30 le soir.
+opening_hours:
+  mon: []
+  tue: ["12:00-15:00", "19:00-23:00"]
+  wed: ["12:00-15:00", "19:00-23:00"]
+  thu: ["12:00-15:00", "19:00-23:00"]
+  fri: ["12:00-15:00", "19:00-23:00"]
+  sat: ["12:00-15:00", "19:00-23:00"]
+  sun: ["12:00-15:00"]
+
+# Le SMS est désactivé dans n8n : seule la confirmation par e-mail est annoncée.
+confirmations:
+  sms: false
+
+booking:
+  capacity: 10              # tables réservables en même temps (le reste est gardé pour le passage)
+  slot_step_min: 30
+  min_notice_hours: 1
+  horizon_days: 30
+  max_slots_offered: 3
+
+services:
+  - id: table
+    label: "Table au restaurant"
+    duration_min: 90
+
+# Au-delà, l'agent ne réserve pas : il prend un message pour que le restaurant rappelle.
+extra:
+  max_party_size: 8
+
+# Secrétariat ou portable du gérant. Vide = pas de transfert, on prend un message.
+transfer_number: ""
+
+# Infos que l'agent peut donner. Il ne doit rien inventer en dehors de ça.
+faq: |
+  - Cuisine lyonnaise de saison, faite maison. La carte change chaque semaine.
+  - Menu du midi en semaine. Pour les prix, la carte est sur le site du restaurant.
+  - Plats végétariens tous les jours. Les allergies sont notées sur la réservation et transmises en cuisine.
+  - Terrasse de mai à septembre, selon la météo, sans réservation possible en terrasse.
+  - Chaises hautes disponibles pour les enfants. Salle accessible en fauteuil roulant.
+  - Parking Saint-Antoine à cinq minutes à pied.
+  - La table est gardée 15 minutes après l'heure de réservation.
+  - Pour annuler ou modifier, prévenir au moins 2 heures avant.
+  - Groupes de plus de 8 personnes et privatisation : le restaurant rappelle pour organiser.
